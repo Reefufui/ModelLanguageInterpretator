@@ -2,8 +2,40 @@
 
 #include "Scanner.hpp"
 #include "Parser.hpp"
-#include "Token.hpp"
-#include "LexicalError.hpp"
+
+#define DEBUG
+
+#ifdef DEBUG
+void lexicalUnitTest(const char* a_testFileName)
+{
+    mli::Scanner scaner(a_testFileName);
+
+    mli::Token token{};
+    while((token = scaner.getToken()).getType() != mli::Token::Type::FINISH)
+    {
+        std::cout << token << "\n";
+    }
+
+    std::cout << "strings:\n";
+    for (auto& s : mli::State::s_strings)
+    {
+        std::cout << "\t" << s << "\n";
+    }
+
+    std::cout << "reals:\n";
+    for (auto& r : mli::State::s_realNumbers)
+    {
+        std::cout << "\t" << r << "\n";
+    }
+}
+
+void semanticalUnitTest(const char* a_testFileName)
+{
+    mli::Parser parser(a_testFileName);
+
+    parser.analyze();
+}
+#endif
 
 int main(int argc, char** argv)
 {
@@ -14,13 +46,8 @@ int main(int argc, char** argv)
             throw std::runtime_error("[main]: invalid number of arguments");
         }
 
-        mli::Scanner scaner(argv[1]);
-
-        mli::Token token{};
-        while((token = scaner.getToken()).getType() != mli::Token::Type::FINISH)
-        {
-            std::cout << token << "\n";
-        }
+        //lexicalUnitTest(argv[1]);
+        semanticalUnitTest(argv[1]);
     }
     catch (const std::exception& error)
     {
@@ -28,6 +55,11 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
     catch (const mli::LexicalError& error)
+    {
+        std::cerr << error << std::endl;
+        return EXIT_FAILURE;
+    }
+    catch (const mli::SyntaxError& error)
     {
         std::cerr << error << std::endl;
         return EXIT_FAILURE;

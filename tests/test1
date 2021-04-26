@@ -1,0 +1,28 @@
+/* pogram on toy c */
+
+program /* int main() */
+{
+    /* declare variables */
+    real pi = 3.14;
+    string s = "";
+    int i = 3, j, k = 1;
+
+    /* body */
+    a:
+
+    if (not (k != i and k <= 0))
+    {
+        read(j);
+        k = j;
+
+        do
+        {
+            write(i);
+            i = i - 1;
+        }
+        while(i);
+    }
+    else
+    write(i);
+}
+

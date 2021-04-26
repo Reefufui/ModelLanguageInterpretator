@@ -3,16 +3,17 @@
 
 #include "Token.hpp"
 #include "Scanner.hpp"
+#include "SyntaxError.hpp"
 
 namespace mli {
 
     class Parser
     {
         private:
-            Token     m_currentToken;
+            Token       m_currentToken;
             Token::Type m_currentType;
-            int       m_currentValue;
-            Scanner   m_scanner;
+            int         m_currentValue;
+            Scanner     m_scanner;
 
             void getToken()
             {
@@ -21,313 +22,331 @@ namespace mli {
                 m_currentValue = m_currentToken.getValue();
             }
 
-            void value()
+            void checkToken(Token::Type a_expectedType)
             {
-                if ( m_currentType == Token::Type::ID )
+                if (m_currentType != a_expectedType)
                 {
-                    getToken();
-                }
-                else if ( m_currentType == Token::Type::STRING
-                        || m_currentType == Token::Type::INT
-                        || m_currentType == Token::Type::REAL)
-                {
-                    getToken();
-                }
-                else if ( m_currentType == Token::Type::POINT )
-                {
-                    getToken(); 
-                }
-                else if ( m_currentType == Token::Type::NOT )
-                {
-                    getToken(); 
-                    value(); 
-                }
-                else if ( m_currentType == Token::Type::OPEN_B )
-                {
-                    getToken(); 
-                    expression();
-
-                    if ( m_currentType != Token::Type::CLOSE_B)
-                    {
-                        throw std::runtime_error("[Parser::value]: expected ')'");
-                    }
-
-                    getToken();
-                }
-                else 
-                {
-                    throw std::runtime_error("[Parser::value]: unexpected expression");
+                    throw SyntaxError(m_currentToken, a_expectedType);
                 }
             }
 
-            void timesLikeOperation()
+            void value()
             {
-                value();
-
-                while ( m_currentType == Token::Type::MULTIPLY
-                        || m_currentType == Token::Type::DIVIDE
-                        || m_currentType == Token::Type::AND)
+                if (m_currentType == Token::Type::ID)
                 {
                     getToken();
+                }
+                else
+                {
+                    constant();
+                    getToken();
+                }
+            }
+
+            void notOperand()
+            {
+                if (m_currentType == Token::Type::NOT)
+                {
+                    getToken();
+                }
+
+                if (m_currentType == Token::Type::OPEN_B)
+                {
+                    getToken();
+                    expression();
+
+                    checkToken(Token::Type::CLOSE_B);
+
+                    getToken();
+                }
+                else
+                {
                     value();
                 }
             }
 
-            void subexpression()
+            void multiplierOperand()
             {
-                timesLikeOperation();
+                notOperand();
 
-                while ( m_currentType == Token::Type::PLUS
-                        || m_currentType == Token::Type::MINUS
-                        || m_currentType == Token::Type::OR)
+                if (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
                 {
                     getToken();
-                    timesLikeOperation();
+                    notOperand();
+                }
+            }
+
+            void termOperand()
+            {
+                multiplierOperand();
+
+                if (m_currentType == Token::Type::MULTIPLY || m_currentType == Token::Type::DIVIDE)
+                {
+                    getToken();
+                    multiplierOperand();
+                }
+            }
+
+            void compOperand()
+            {
+                termOperand();
+
+                if (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
+                {
+                    getToken();
+                    termOperand();
+                }
+            }
+
+            void andOperand()
+            {
+                compOperand();
+
+                bool isCompOperand{ m_currentType >= Token::Type::EQ && m_currentType <= Token::Type::GEQ };
+
+                if (isCompOperand)
+                {
+                    getToken();
+                    compOperand();
+                }
+            }
+
+            void orOperand()
+            {
+                andOperand();
+
+                if (m_currentType == Token::Type::AND)
+                {
+                    getToken();
+                    andOperand();
+                }
+            }
+
+            void assignOperand()
+            {
+                orOperand();
+
+                if (m_currentType == Token::Type::OR)
+                {
+                    getToken();
+                    orOperand();
                 }
             }
 
             void expression()
             {
-                subexpression();
+                assignOperand();
 
-                if ( m_currentType == Token::Type::EQ
-                        || m_currentType == Token::Type::NEQ
-                        || m_currentType == Token::Type::LESS
-                        || m_currentType == Token::Type::GREATER
-                        || m_currentType == Token::Type::LEQ
-                        || m_currentType == Token::Type::GEQ)
+                if (m_currentType == Token::Type::ASSIGN)
                 {
                     getToken();
-                    subexpression();
+                    assignOperand();
                 }
             }
 
-            void sentence()
+            void statement()
             {
-                if ( m_currentType == Token::Type::WHILE )
+                if ( m_currentType == Token::Type::READ )
                 {
                     getToken();
-                    expression();
-
-                    if ( m_currentType != Token::Type::DO )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: do expected after while");
-                    }
+                    checkToken(Token::Type::OPEN_B);
 
                     getToken();
-                    sentence();
-                }
-                if ( m_currentType == Token::Type::DO )
-                {
-                    getToken();
-                    sentence();
-
-                    if ( m_currentType != Token::Type::WHILE )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: while expected after do");
-                    }
+                    checkToken(Token::Type::ID);
 
                     getToken();
-                    expression();
-                }
-                else if ( m_currentType == Token::Type::READ )
-                {
-                    getToken();
-
-                    if ( m_currentType != Token::Type::OPEN_B )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected '('");
-                    }
+                    checkToken(Token::Type::CLOSE_B);
 
                     getToken();
-
-                    if ( m_currentType != Token::Type::ID )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected variable name");
-                    }
-
-                    getToken();
-
-                    if ( m_currentType != Token::Type::CLOSE_B )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected ')'");
-                    }
-
-                    getToken();
+                    checkToken(Token::Type::SEMICOLON);
                 }
                 else if ( m_currentType == Token::Type::WRITE )
                 {
                     getToken();
+                    checkToken(Token::Type::OPEN_B);
 
-                    if ( m_currentType != Token::Type::OPEN_B )
+                    do
                     {
-                        throw std::runtime_error("[Parser::sentence]: expected '('");
+                        getToken();
+                        checkToken(Token::Type::ID);
+
+                        getToken();
                     }
+                    while (m_currentType == Token::Type::COMMA);
+
+                    checkToken(Token::Type::CLOSE_B);
+
+                    getToken();
+                    checkToken(Token::Type::SEMICOLON);
+                }
+                else if ( m_currentType == Token::Type::WHILE )
+                {
+                    getToken();
+                    checkToken(Token::Type::OPEN_B);
 
                     getToken();
                     expression();
 
-                    if ( m_currentType != Token::Type::CLOSE_B )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected ')'");
-                    }
+                    checkToken(Token::Type::CLOSE_B);
 
                     getToken();
+                    statement();
+                }
+                else if ( m_currentType == Token::Type::DO )
+                {
+                    getToken();
+                    statement();
+
+                    getToken();
+                    checkToken(Token::Type::WHILE);
+
+                    getToken();
+                    checkToken(Token::Type::OPEN_B);
+
+                    getToken();
+                    expression();
+
+                    checkToken(Token::Type::CLOSE_B);
+
+                    getToken();
+                    checkToken(Token::Type::SEMICOLON);
+                }
+                else if ( m_currentType == Token::Type::IF )
+                {
+                    getToken();
+                    checkToken(Token::Type::OPEN_B);
+
+                    getToken();
+                    expression();
+
+                    checkToken(Token::Type::CLOSE_B);
+
+                    getToken();
+                    statement();
+
+                    getToken();
+                    checkToken(Token::Type::ELSE);
+                    getToken();
+                    statement();
+                }
+                else if ( m_currentType == Token::Type::GOTO_MARK )
+                {
+                    getToken();
+                    checkToken(Token::Type::COLON);
                 }
                 else if ( m_currentType == Token::Type::GOTO )
-                { 
+                {
                     getToken();
-
-                    if ( m_currentType != Token::Type::ID )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected identificator");
-                    }
+                    checkToken(Token::Type::GOTO_MARK);
 
                     getToken();
-
-                    if ( m_currentType != Token::Type::COLON )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected ':'");
-                    }
+                    checkToken(Token::Type::SEMICOLON);
                 }
-                else if ( m_currentType == Token::Type::ID )
-                { 
+                else if (m_currentType == Token::Type::BEGIN)
+                {
                     getToken();
-
-                    if ( m_currentType != Token::Type::ASSIGN )
-                    {
-                        throw std::runtime_error("[Parser::sentence]: expected '='");
-                    }
-
-                    getToken();
-                    expression();
+                    statements();
                 }
                 else
                 {
-                    block();
+                    expression();
+                    checkToken(Token::Type::SEMICOLON);
                 }
             }
 
-            void block()
+    void statements()
+    {
+        while (m_currentType != Token::Type::END)
+        {
+            statement();
+            getToken();
+        }
+    }
+
+    void constant()
+    {
+        auto isNumerical = [&]() -> bool
+        {
+            return m_currentType == Token::Type::INT_CONST
+                || m_currentType == Token::Type::REAL_CONST;
+        };
+
+        if (m_currentToken == Token::Type::MINUS || m_currentToken == Token::Type::PLUS)
+        {
+            getToken();
+
+            if (!isNumerical())
             {
-                if (m_currentType != Token::Type::BEGIN)
-                {
-                    throw std::runtime_error("[Parser::block]: '{' expected");
-                }
+                throw SyntaxError(m_currentToken, Token::Type::INT_CONST);
+            }
+        }
+        else if (!isNumerical() && (m_currentType != Token::Type::STRING_CONST))
+        {
+            throw SyntaxError(m_currentToken, Token::Type::VALUE);
+        }
+    }
+
+    void declarations()
+    {
+        auto isDeclaration = [&]() -> bool
+        {
+            return m_currentType == Token::Type::INT
+                || m_currentType == Token::Type::STRING
+                || m_currentType == Token::Type::REAL;
+        };
+
+        while (isDeclaration())
+        {
+            do
+            {
+                getToken();
+                checkToken(Token::Type::ID);
 
                 getToken();
-                sentence();
 
-                while (m_currentType == Token::Type::SEMICOLON)
+                if (m_currentType == Token::Type::ASSIGN)
                 {
                     getToken();
-                    sentence();
-                }
-
-                if (m_currentType != Token::Type::END)
-                {
-                    throw std::runtime_error("[Parser::block]: '}' expected");
-                }
-
-                getToken();
-            }
-
-            void variable()
-            {
-                if (m_currentType != Token::Type::ID)
-                {
-                    throw std::runtime_error("[Parser::variable]: variable name expected");
-                }
-
-                getToken();
-
-                while (m_currentType == Token::Type::COMMA)
-                {
-                    getToken();
-
-                    if (m_currentType != Token::Type::ID)
-                    {
-                        throw std::runtime_error("[Parser::variable]: variable name expected");
-                    }
-
+                    constant();
                     getToken();
                 }
-
-                if (m_currentType != Token::Type::COLON)
-                {
-                    throw std::runtime_error("[Parser::variable]: ':' expected");
-                }
-
-                getToken();
-
-                bool isVariableType{ m_currentType != Token::Type::INT
-                    && m_currentType != Token::Type::STRING
-                        && m_currentType != Token::Type::REAL };
-
-                if (!isVariableType)
-                {
-                    throw std::runtime_error("[Parser::variable]: variable type expected");
-                }
-
-                getToken();
             }
+            while (m_currentType == Token::Type::COMMA);
 
-            void declare()
-            {
-                if (m_currentType != Token::Type::VARIABLE)
-                {
-                    throw std::runtime_error("[Parser::declare]: var expected");
-                }
+            checkToken(Token::Type::SEMICOLON);
+            getToken();
+        }
+    }
 
-                getToken();
-                variable();
+    void program()
+    {
+        getToken();
+        checkToken(Token::Type::ENTRY);
+        getToken();
+        checkToken(Token::Type::BEGIN);
 
-                while (m_currentType == Token::Type::COMMA)
-                {
-                    getToken();
-                    variable();
-                }
-            }
+        getToken();
+        declarations();
+        statements();
 
-            void program()
-            {
-                if (m_currentType != Token::Type::ENTRY)
-                {
-                    throw std::runtime_error("[Parser::program]: program expected");
-                }
-
-                getToken();
-                declare();
-
-                if (m_currentType != Token::Type::SEMICOLON)
-                {
-                    throw std::runtime_error("[Parser::program]: ';' expected");
-                }
-
-                getToken();
-                block();
-            }
-
+        getToken();
+        checkToken(Token::Type::FINISH);
+    }
 
         public:
 
-            Parser(const std::string& a_srcFileName)
-                : m_scanner(a_srcFileName)
-            {
-            }
+    Parser(const std::string& a_srcFileName)
+        : m_scanner(a_srcFileName)
+    {
+    }
 
-            void analyze()
-            {
-                getToken();
-                program();
+    void analyze()
+    {
+        program();
 
-                if (m_currentType != Token::Type::FINISH)
-                {
-                    throw std::runtime_error("[Parser::analyze]: wrong sequence");
-                }
-
-                std::cout << "OK\n";
-            }
+        checkToken(Token::Type::FINISH);
+        std::cout << "OK\n";
+    }
     };
 }
 
