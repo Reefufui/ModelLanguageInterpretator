@@ -29,8 +29,9 @@ namespace mli {
                 ASSIGN,
                 PARENTHESIS,
                 OPEN_B, CLOSE_B,
-                EQ, LESS, GREATER, NEQ, LEQ, GEQ,
                 IF, ELSE,
+
+                EQ, LESS, GREATER, NEQ, LEQ, GEQ, // dont change order
 
                 PLUS, MINUS, MULTIPLY, DIVIDE,
 

@@ -30,22 +30,117 @@ namespace mli {
                 }
             }
 
-            void leftPart()
+            void value()
             {
+                if (m_currentType == Token::Type::ID)
+                {
+                    getToken();
+                }
+                else
+                {
+                    constant();
+                    getToken();
+                }
             }
 
-            void rightPart()
+            void notOperand()
             {
+                if (m_currentType == Token::Type::NOT)
+                {
+                    getToken();
+                }
+
+                if (m_currentType == Token::Type::OPEN_B)
+                {
+                    getToken();
+                    expression();
+
+                    checkToken(Token::Type::CLOSE_B);
+
+                    getToken();
+                }
+                else
+                {
+                    value();
+                }
             }
 
-            void assign()
+            void multiplierOperand()
             {
-                leftPart();
+                notOperand();
+
+                if (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
+                {
+                    getToken();
+                    notOperand();
+                }
+            }
+
+            void termOperand()
+            {
+                multiplierOperand();
+
+                if (m_currentType == Token::Type::MULTIPLY || m_currentType == Token::Type::DIVIDE)
+                {
+                    getToken();
+                    multiplierOperand();
+                }
+            }
+
+            void compOperand()
+            {
+                termOperand();
+
+                if (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
+                {
+                    getToken();
+                    termOperand();
+                }
+            }
+
+            void andOperand()
+            {
+                compOperand();
+
+                bool isCompOperand{ m_currentType >= Token::Type::EQ && m_currentType <= Token::Type::GEQ };
+
+                if (isCompOperand)
+                {
+                    getToken();
+                    compOperand();
+                }
+            }
+
+            void orOperand()
+            {
+                andOperand();
+
+                if (m_currentType == Token::Type::AND)
+                {
+                    getToken();
+                    andOperand();
+                }
+            }
+
+            void assignOperand()
+            {
+                orOperand();
+
+                if (m_currentType == Token::Type::OR)
+                {
+                    getToken();
+                    orOperand();
+                }
+            }
+
+            void expression()
+            {
+                assignOperand();
 
                 if (m_currentType == Token::Type::ASSIGN)
                 {
                     getToken();
-                    rightPart();
+                    assignOperand();
                 }
             }
 
@@ -90,7 +185,7 @@ namespace mli {
                     checkToken(Token::Type::OPEN_B);
 
                     getToken();
-                    //assign();
+                    expression();
 
                     checkToken(Token::Type::CLOSE_B);
 
@@ -109,7 +204,7 @@ namespace mli {
                     checkToken(Token::Type::OPEN_B);
 
                     getToken();
-                    //assign();
+                    expression();
 
                     checkToken(Token::Type::CLOSE_B);
 
@@ -122,7 +217,7 @@ namespace mli {
                     checkToken(Token::Type::OPEN_B);
 
                     getToken();
-                    //assign();
+                    expression();
 
                     checkToken(Token::Type::CLOSE_B);
 
@@ -154,7 +249,8 @@ namespace mli {
                 }
                 else
                 {
-                    std::cout << m_currentToken << "\n";
+                    expression();
+                    checkToken(Token::Type::SEMICOLON);
                 }
             }
 

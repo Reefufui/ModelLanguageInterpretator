@@ -5,34 +5,24 @@ program /* int main() */
     /* declare variables */
     real pi = 3.14;
     string s = "";
-    int i, j = -3, 1;
+    int i = 3, j, k = 1;
 
     /* body */
-
     a:
 
-    i = j / k;
-
-    if ()
+    if (not (k != i and k <= 0))
     {
-        read(i);
-        goto a;
+        read(j);
+        k = j;
+
+        do
+        {
+            write(i);
+            i = i - 1;
+        }
+        while(i);
     }
     else
     write(i);
-
-    while()
-    {
-        do
-        {
-            goto a;
-        }
-        while ();
-
-        {
-            write(pi);
-        }
-    }
-
 }
 
