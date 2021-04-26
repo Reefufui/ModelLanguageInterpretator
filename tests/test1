@@ -5,19 +5,20 @@ program /* int main() */
     /* declare variables */
     real pi = 3.14;
     string s = "";
-    int i = 3, j, k = 1;
+    int i = 3, j = 0, k = 1;
 
     /* body */
     a:
 
-    if (not (k != i and k <= 0))
+    b and i;
+
+    if (s + s + s)
     {
         read(j);
-        k = j;
 
         do
         {
-            write(i);
+            write("Hello world");
             i = i - 1;
         }
         while(i);

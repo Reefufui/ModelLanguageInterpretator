@@ -137,7 +137,7 @@ namespace mli {
 
             friend std::ostream& operator<<(std::ostream &a_out, const Token& a_token)
             {
-                a_out << a_token.m_type << "\tfrom line: " << a_token.m_line << " with value: " << a_token.m_value << "";
+                a_out << a_token.m_type << "\tfrom line: " << a_token.m_line << " with value: " << a_token.m_value;
 
                 return a_out;
             }

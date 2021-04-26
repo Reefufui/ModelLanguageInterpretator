@@ -12,7 +12,7 @@ namespace mli {
     class Ident {
         private:
             std::string m_name;
-            Token::Type   m_type;
+            Token::Type m_type;
 
             uint32_t    m_value;
 
@@ -55,7 +55,12 @@ namespace mli {
             {
                 return m_name == a_str;
             }
-            
+
+            friend std::ostream& operator<<(std::ostream &a_out, const Ident& a_ident)
+            {
+                return a_out << a_ident.m_name << " (" << a_ident.m_type << " with ID = " << a_ident.m_id << ")";
+            }
+
             int getID() const
             {
                 return m_id;
@@ -84,11 +89,6 @@ namespace mli {
             bool isAssigned() const
             {
                 return m_assign;
-            }
-
-            void setName(const std::string& a_name)
-            {
-                m_name = a_name;
             }
 
             void setType(const Token::Type& a_type)
