@@ -1,11 +1,12 @@
 #ifndef SCANNER_HPP
 #define SCANNER_HPP
 
-#include <map>
 #include <unordered_map>
 #include <filesystem>
 #include <fstream>
 #include <string>
+#include <vector>
+#include <cmath>
 
 #include "Token.hpp"
 #include "Ident.hpp"
@@ -18,6 +19,7 @@ namespace mli {
     class InitialState;
     class IdentState;
     class NumberState;
+    class StringState;
     class CommentState;
     class LessGreaterState;
     class NotEqualState;
@@ -33,6 +35,7 @@ namespace mli {
                 InitialState*     pInitialState{};
                 IdentState*       pIdentState{};
                 NumberState*      pNumberState{};
+                StringState*      pStringState{};
                 CommentState*     pCommentState{};
                 LessGreaterState* pLessGreaterState{};
                 NotEqualState*    pNotEqualState{};
@@ -59,15 +62,16 @@ namespace mli {
                 return s_token;
             }
 
+            static std::unordered_map<std::string, Ident> s_TID;
+            static std::unordered_map<std::string, Ident> s_gotoMarks;
+            static std::vector<std::string>               s_strings;
+            static std::vector<double>                    s_realNumbers;
+
         protected:
             static std::string    s_charBuffer;
             static uint32_t       s_numBuffer;
             static std::ifstream* s_pSrcFile;
             static Machine        s_stateMachine;
-
-            static std::map<std::string, Token::Type> s_reservedWords;
-            static std::map<std::string, Token::Type> s_delimeters;
-            static std::unordered_map<std::string, Ident> s_TID;
 
             static Token s_token;
             static int   s_currentLine;
@@ -88,48 +92,10 @@ namespace mli {
     Token          State::s_token{};
     int            State::s_currentLine{1};
 
-    std::map<std::string, Token::Type> State::s_reservedWords {
-        { "",        Token::Type::NULL },
-            { "program", Token::Type::ENTRY },
-            { "int",     Token::Type::INT },
-            { "string",  Token::Type::STRING },
-            { "real",    Token::Type::REAL },
-            { "var",     Token::Type::VARIABLE },
-            { "goto",    Token::Type::GOTO },
-            { "case_of", Token::Type::CASE_OF },
-            { "while",   Token::Type::WHILE },
-            { "do",      Token::Type::DO },
-            { "read",    Token::Type::READ },
-            { "write",   Token::Type::WRITE },
-            { "not",     Token::Type::NOT },
-            { "and",     Token::Type::AND },
-            { "or",      Token::Type::OR }
-    };
-
-    std::map<std::string, Token::Type> State::s_delimeters {
-        { "",  Token::Token::Type::NULL },
-            { "{", Token::Type::BEGIN },
-            { "}", Token::Type::END },
-            { ";", Token::Type::SEMICOLON },
-            { ":", Token::Type::COLON },
-            { ",", Token::Type::COMMA },
-            { "=", Token::Type::ASSIGN },
-            { "(", Token::Type::OPEN_B },
-            { ")", Token::Type::CLOSE_B },
-            { "==", Token::Type::EQ },
-            { "<",  Token::Type::LESS },
-            { ">",  Token::Type::GREATER },
-            { "!=", Token::Type::NEQ },
-            { "<=", Token::Type::LEQ },
-            { ">=", Token::Type::GEQ },
-            { "+",  Token::Type::PLUS },
-            { "-",  Token::Type::MINUS },
-            { "*",  Token::Type::MULTIPLY },
-            { "/",  Token::Type::DIVIDE },
-            { ".",  Token::Type::POINT }
-    };
-
     std::unordered_map<std::string, Ident> State::s_TID;
+    std::unordered_map<std::string, Ident> State::s_gotoMarks;
+    std::vector<std::string> State::s_strings;
+    std::vector<double> State::s_realNumbers;
 
     class InitialState : public State
     {
@@ -145,7 +111,7 @@ namespace mli {
 
                 if (s_pSrcFile->eof())
                 {
-                    s_token = Token(Token::Type::FINISH);
+                    s_token = Token(Token::Type::FINISH, s_currentLine);
                 }
                 else if (std::isspace(m_currentChar))
                 {
@@ -161,8 +127,13 @@ namespace mli {
                     s_numBuffer = m_currentChar - '0';
                     return (State*)s_stateMachine.pNumberState;
                 }
-                else if (m_currentChar == '#')
+                else if (m_currentChar == '"')
                 {
+                    return (State*)s_stateMachine.pStringState;
+                }
+                else if (m_currentChar == '/')
+                {
+                    s_charBuffer.push_back(m_currentChar);
                     return (State*)s_stateMachine.pCommentState;
                 }
                 else if (m_currentChar == '<' || m_currentChar == '>')
@@ -180,17 +151,12 @@ namespace mli {
                     s_charBuffer.push_back(m_currentChar);
                     return (State*)s_stateMachine.pAssignOrEqual;
                 }
-                else if (m_currentChar == '.')
-                {
-                    s_charBuffer.push_back(m_currentChar);
-                    return (State*)s_stateMachine.pRealState;
-                }
                 else
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    if (s_delimeters.contains(s_charBuffer))
+                    if (Token::Token::s_delimeters.contains(s_charBuffer))
                     {
-                        s_token = Token(s_delimeters[s_charBuffer]);
+                        s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                     }
                     else
                     {
@@ -218,20 +184,29 @@ namespace mli {
                 {
                     s_pSrcFile->unget();
 
-                    if (s_reservedWords.contains(s_charBuffer))
+                    if (Token::s_reservedWords.contains(s_charBuffer))
                     {
-                        s_token = Token(s_reservedWords[s_charBuffer]);
+                        s_token = Token(Token::s_reservedWords[s_charBuffer], s_currentLine);
+                    }
+                    else if (s_gotoMarks.contains(s_charBuffer))
+                    {
+                        s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
+                    }
+                    else if (s_TID.contains(s_charBuffer))
+                    {
+                        s_token = Token(Token::Type::ID, s_currentLine, s_TID[s_charBuffer].getID());
                     }
                     else
                     {
-                        if (s_TID.contains(s_charBuffer))
+                        if (m_currentChar != ':')
                         {
-                            s_token = Token(Token::Type::ID, s_TID[s_charBuffer].getID());
+                            s_TID[s_charBuffer] = Ident(s_charBuffer);
+                            s_token = Token(Token::Type::ID, s_currentLine, s_TID[s_charBuffer].getID());
                         }
                         else
                         {
-                            s_TID[s_charBuffer] = Ident(s_charBuffer);
-                            s_token = Token(Token::Type::ID, s_TID[s_charBuffer].getID());
+                            s_gotoMarks[s_charBuffer] = Ident(s_charBuffer);
+                            s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
                         }
                     }
 
@@ -259,15 +234,42 @@ namespace mli {
                 {
                     if (m_currentChar == '.')
                     {
-                        s_token = Token(Token::Type::REAL, s_numBuffer);
+                        return (State*)s_stateMachine.pRealState;
+                    }
+                    else if (std::isalpha(m_currentChar))
+                    {
+                        throw LexicalError(s_currentLine, m_currentChar);
                     }
                     else
                     {
-                        s_token = Token(Token::Token::Type::INT, s_numBuffer);
+                        s_token = Token(Token::Type::INT_CONST, s_currentLine, s_numBuffer);
                     }
 
                     s_pSrcFile->unget();
                     return (State*)s_stateMachine.pInitialState;
+                }
+
+                return this;
+            }
+    };
+
+    class StringState : public State
+    {
+        public:
+
+            State* determineToken()
+            {
+                getChar();
+
+                if (m_currentChar == '"')
+                {
+                    s_strings.push_back(s_charBuffer);
+                    s_token = Token(Token::Type::STRING_CONST, s_currentLine, s_strings.size() - 1);
+                    return (State*)s_stateMachine.pInitialState;
+                }
+                else
+                {
+                    s_charBuffer.push_back(m_currentChar);
                 }
 
                 return this;
@@ -280,20 +282,38 @@ namespace mli {
 
             State* determineToken() override
             {
+                if (s_pSrcFile->eof())
+                {
+                    throw LexicalError(s_currentLine, 0);
+                }
+
                 getChar();
 
-                if (m_currentChar == '#')
+                if (s_charBuffer == "/")
                 {
-                    return (State*)s_stateMachine.pInitialState;
+                    if (m_currentChar == '*')
+                    {
+                        s_currentLine += (m_currentChar == '\n');
+                        s_charBuffer = "";
+                    }
+                    else
+                    {
+                        s_pSrcFile->unget();
+                        s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
+                        return (State*)s_stateMachine.pInitialState;
+                    }
+
                 }
-                else if (s_pSrcFile->eof())
+                else if (m_currentChar == '*')
                 {
-                    throw LexicalError(m_currentChar, 0, '#');
+                    getChar();
+                    if (m_currentChar == '/')
+                    {
+                        return (State*)s_stateMachine.pInitialState;
+                    }
                 }
-                else
-                {
-                    s_currentLine += (m_currentChar == '\n');
-                }
+
+                s_currentLine += (m_currentChar == '\n');
 
                 return this;
             }
@@ -310,12 +330,12 @@ namespace mli {
                 if (m_currentChar == '=')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    s_token = Token(s_delimeters[s_charBuffer]);
+                    s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
                 else
                 {
                     s_pSrcFile->unget();
-                    s_token = Token(s_delimeters[s_charBuffer]);
+                    s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
 
                 return (State*)s_stateMachine.pInitialState;
@@ -333,7 +353,7 @@ namespace mli {
                 if (m_currentChar == '=')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    s_token = Token(s_delimeters[s_charBuffer]);
+                    s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
                 else
                 {
@@ -355,12 +375,12 @@ namespace mli {
                 if (m_currentChar == '=')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    s_token = Token(s_delimeters[s_charBuffer]);
+                    s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
                 else
                 {
                     s_pSrcFile->unget();
-                    s_token = Token(s_delimeters[s_charBuffer]);
+                    s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
 
                 return (State*)s_stateMachine.pInitialState;
@@ -377,13 +397,17 @@ namespace mli {
 
                 if (std::isdigit(m_currentChar))
                 {
-                    ++s_numBuffer;
+                    s_numBuffer *= 10;
+                    s_numBuffer += m_currentChar - '0';
+                    s_charBuffer.push_back(m_currentChar);
                 }
                 else
                 {
-                    s_token = Token(Token::Type::POINT, s_numBuffer);
+                    double real = (double)s_numBuffer * std::pow(0.1, s_charBuffer.size());
+                    s_realNumbers.push_back(real);
+                    s_token = Token(Token::Type::REAL_CONST, s_currentLine, s_realNumbers.size() - 1);
 
-                    for (uint32_t i{}; i <= s_numBuffer; ++i) s_pSrcFile->unget();
+                    s_pSrcFile->unget();
                     return (State*)s_stateMachine.pInitialState;
                 }
 
@@ -400,6 +424,7 @@ namespace mli {
             InitialState     m_initialState{};
             IdentState       m_identState{};
             NumberState      m_numberState{};
+            StringState      m_stringState{};
             CommentState     m_commentState{};
             LessGreaterState m_lessGreaterState{};
             NotEqualState    m_notEqualState{};
@@ -422,6 +447,7 @@ namespace mli {
                     &m_initialState,
                         &m_identState,
                         &m_numberState,
+                        &m_stringState,
                         &m_commentState,
                         &m_lessGreaterState,
                         &m_notEqualState,
@@ -444,11 +470,13 @@ namespace mli {
 
             Token getToken()
             {
+                Token unknownToken{};
+
                 do
                 {
                     m_currentState = m_currentState->determineToken();
                 }
-                while (m_currentState->getToken() == Token{});
+                while (m_currentState->getToken() == unknownToken);
 
                 return m_currentState->getToken();
             }

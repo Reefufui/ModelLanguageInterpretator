@@ -44,3 +44,4 @@ namespace mli {
 }
 
 #endif // LEXICAL_ERROR_HPP
+
