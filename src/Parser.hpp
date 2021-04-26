@@ -4,6 +4,7 @@
 #include "Token.hpp"
 #include "Scanner.hpp"
 #include "SyntaxError.hpp"
+#include "Semantic.hpp"
 
 namespace mli {
 
@@ -14,6 +15,7 @@ namespace mli {
             Token::Type m_currentType;
             int         m_currentValue;
             Scanner     m_scanner;
+            Semantic    m_validator;
 
             void getToken()
             {
@@ -43,7 +45,7 @@ namespace mli {
                 }
             }
 
-            void notOperand()
+            void multiplierOperand()
             {
                 if (m_currentType == Token::Type::NOT)
                 {
@@ -65,22 +67,11 @@ namespace mli {
                 }
             }
 
-            void multiplierOperand()
-            {
-                notOperand();
-
-                if (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
-                {
-                    getToken();
-                    notOperand();
-                }
-            }
-
             void termOperand()
             {
                 multiplierOperand();
 
-                if (m_currentType == Token::Type::MULTIPLY || m_currentType == Token::Type::DIVIDE)
+                while (m_currentType == Token::Type::MULTIPLY || m_currentType == Token::Type::DIVIDE)
                 {
                     getToken();
                     multiplierOperand();
@@ -91,7 +82,7 @@ namespace mli {
             {
                 termOperand();
 
-                if (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
+                while (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
                 {
                     getToken();
                     termOperand();
@@ -102,9 +93,7 @@ namespace mli {
             {
                 compOperand();
 
-                bool isCompOperand{ m_currentType >= Token::Type::EQ && m_currentType <= Token::Type::GEQ };
-
-                if (isCompOperand)
+                while ( m_currentType >= Token::Type::EQ && m_currentType <= Token::Type::GEQ )
                 {
                     getToken();
                     compOperand();
@@ -115,7 +104,7 @@ namespace mli {
             {
                 andOperand();
 
-                if (m_currentType == Token::Type::AND)
+                while (m_currentType == Token::Type::AND)
                 {
                     getToken();
                     andOperand();
@@ -126,7 +115,7 @@ namespace mli {
             {
                 orOperand();
 
-                if (m_currentType == Token::Type::OR)
+                while (m_currentType == Token::Type::OR)
                 {
                     getToken();
                     orOperand();
@@ -137,7 +126,7 @@ namespace mli {
             {
                 assignOperand();
 
-                if (m_currentType == Token::Type::ASSIGN)
+                while (m_currentType == Token::Type::ASSIGN)
                 {
                     getToken();
                     assignOperand();
@@ -168,9 +157,7 @@ namespace mli {
                     do
                     {
                         getToken();
-                        checkToken(Token::Type::ID);
-
-                        getToken();
+                        expression();
                     }
                     while (m_currentType == Token::Type::COMMA);
 
@@ -254,99 +241,106 @@ namespace mli {
                 }
             }
 
-    void statements()
-    {
-        while (m_currentType != Token::Type::END)
-        {
-            statement();
-            getToken();
-        }
-    }
-
-    void constant()
-    {
-        auto isNumerical = [&]() -> bool
-        {
-            return m_currentType == Token::Type::INT_CONST
-                || m_currentType == Token::Type::REAL_CONST;
-        };
-
-        if (m_currentToken == Token::Type::MINUS || m_currentToken == Token::Type::PLUS)
-        {
-            getToken();
-
-            if (!isNumerical())
+            void statements()
             {
-                throw SyntaxError(m_currentToken, Token::Type::INT_CONST);
-            }
-        }
-        else if (!isNumerical() && (m_currentType != Token::Type::STRING_CONST))
-        {
-            throw SyntaxError(m_currentToken, Token::Type::VALUE);
-        }
-    }
-
-    void declarations()
-    {
-        auto isDeclaration = [&]() -> bool
-        {
-            return m_currentType == Token::Type::INT
-                || m_currentType == Token::Type::STRING
-                || m_currentType == Token::Type::REAL;
-        };
-
-        while (isDeclaration())
-        {
-            do
-            {
-                getToken();
-                checkToken(Token::Type::ID);
-
-                getToken();
-
-                if (m_currentType == Token::Type::ASSIGN)
+                while (m_currentType != Token::Type::END)
                 {
-                    getToken();
-                    constant();
+                    statement();
                     getToken();
                 }
             }
-            while (m_currentType == Token::Type::COMMA);
 
-            checkToken(Token::Type::SEMICOLON);
-            getToken();
-        }
-    }
+            void constant()
+            {
+                auto isNumerical = [&]() -> bool
+                {
+                    return m_currentType == Token::Type::INT_CONST
+                        || m_currentType == Token::Type::REAL_CONST;
+                };
 
-    void program()
-    {
-        getToken();
-        checkToken(Token::Type::ENTRY);
-        getToken();
-        checkToken(Token::Type::BEGIN);
+                if (m_currentToken == Token::Type::MINUS || m_currentToken == Token::Type::PLUS)
+                {
+                    getToken();
 
-        getToken();
-        declarations();
-        statements();
+                    if (!isNumerical())
+                    {
+                        throw SyntaxError(m_currentToken, Token::Type::INT_CONST);
+                    }
+                }
+                else if (!isNumerical() && (m_currentType != Token::Type::STRING_CONST))
+                {
+                    throw SyntaxError(m_currentToken, Token::Type::VALUE);
+                }
+            }
 
-        getToken();
-        checkToken(Token::Type::FINISH);
-    }
+            void declarations()
+            {
+                Token::Type variableType;
+
+                auto isDeclaration = [&]() -> bool
+                {
+                    variableType = m_currentType;
+                    return m_currentType == Token::Type::INT
+                        || m_currentType == Token::Type::STRING
+                        || m_currentType == Token::Type::REAL;
+                };
+
+                while (isDeclaration())
+                {
+                    do
+                    {
+                        getToken();
+                        checkToken(Token::Type::ID);
+                        uint32_t varID = m_currentValue;
+
+                        m_validator.declaration(varID, variableType);
+
+                        getToken();
+
+                        if (m_currentType == Token::Type::ASSIGN)
+                        {
+                            getToken();
+                            constant();
+                            m_validator.init(varID, m_currentType);
+                            getToken();
+                        }
+                    }
+                    while (m_currentType == Token::Type::COMMA);
+
+                    checkToken(Token::Type::SEMICOLON);
+                    getToken();
+                }
+            }
+
+            void program()
+            {
+                getToken();
+                checkToken(Token::Type::ENTRY);
+                getToken();
+                checkToken(Token::Type::BEGIN);
+
+                getToken();
+                declarations();
+                statements();
+
+                getToken();
+                checkToken(Token::Type::FINISH);
+            }
 
         public:
 
-    Parser(const std::string& a_srcFileName)
-        : m_scanner(a_srcFileName)
-    {
-    }
+            Parser(const std::string& a_srcFileName)
+                : m_scanner(a_srcFileName)
+            {
+            }
 
-    void analyze()
-    {
-        program();
+            void analyze()
+            {
+                program();
 
-        checkToken(Token::Type::FINISH);
-        std::cout << "OK\n";
-    }
+                checkToken(Token::Type::FINISH);
+                std::cout << "SYNTAX TEST PASSED\n";
+            }
     };
 }
 

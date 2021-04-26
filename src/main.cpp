@@ -64,6 +64,11 @@ int main(int argc, char** argv)
         std::cerr << error << std::endl;
         return EXIT_FAILURE;
     }
+    catch (const mli::SemanticError<mli::Ident>& error)
+    {
+        std::cerr << error << std::endl;
+        return EXIT_FAILURE;
+    }
 
     return EXIT_SUCCESS;
 }

@@ -67,6 +67,8 @@ namespace mli {
             static std::vector<std::string>               s_strings;
             static std::vector<double>                    s_realNumbers;
 
+            static int                                    s_currentLine;
+
         protected:
             static std::string    s_charBuffer;
             static uint32_t       s_numBuffer;
@@ -74,7 +76,6 @@ namespace mli {
             static Machine        s_stateMachine;
 
             static Token s_token;
-            static int   s_currentLine;
 
             char m_currentChar;
 
