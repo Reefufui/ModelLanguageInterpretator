@@ -121,36 +121,36 @@ namespace mli {
                 else if (std::isalpha(m_currentChar))
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    return (State*)s_stateMachine.pIdentState;
+                    return reinterpret_cast<State*>(s_stateMachine.pIdentState);
                 }
                 else if (std::isdigit(m_currentChar))
                 {
                     s_numBuffer = m_currentChar - '0';
-                    return (State*)s_stateMachine.pNumberState;
+                    return reinterpret_cast<State*>(s_stateMachine.pNumberState);
                 }
                 else if (m_currentChar == '"')
                 {
-                    return (State*)s_stateMachine.pStringState;
+                    return reinterpret_cast<State*>(s_stateMachine.pStringState);
                 }
                 else if (m_currentChar == '/')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    return (State*)s_stateMachine.pCommentState;
+                    return reinterpret_cast<State*>(s_stateMachine.pCommentState);
                 }
                 else if (m_currentChar == '<' || m_currentChar == '>')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    return (State*)s_stateMachine.pLessGreaterState;
+                    return reinterpret_cast<State*>(s_stateMachine.pLessGreaterState);
                 }
                 else if (m_currentChar == '!')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    return (State*)s_stateMachine.pNotEqualState;
+                    return reinterpret_cast<State*>(s_stateMachine.pNotEqualState);
                 }
                 else if (m_currentChar == '=')
                 {
                     s_charBuffer.push_back(m_currentChar);
-                    return (State*)s_stateMachine.pAssignOrEqual;
+                    return reinterpret_cast<State*>(s_stateMachine.pAssignOrEqual);
                 }
                 else
                 {
@@ -180,41 +180,34 @@ namespace mli {
                 if (std::isalpha(m_currentChar) || std::isdigit(m_currentChar))
                 {
                     s_charBuffer.push_back(m_currentChar);
+                    return this;
+                }
+
+                if (Token::s_reservedWords.contains(s_charBuffer))
+                {
+                    s_token = Token(Token::s_reservedWords[s_charBuffer], s_currentLine);
+                }
+                else if (s_TID.contains(s_charBuffer))
+                {
+                    s_token = Token(Token::Type::ID, s_currentLine, s_TID[s_charBuffer].getID());
+                }
+                else if (s_gotoMarks.contains(s_charBuffer))
+                {
+                    s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
+                }
+                else if (m_currentChar == ':')
+                {
+                    s_gotoMarks[s_charBuffer] = Ident(s_charBuffer);
+                    s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
                 }
                 else
                 {
-                    s_pSrcFile->unget();
-
-                    if (Token::s_reservedWords.contains(s_charBuffer))
-                    {
-                        s_token = Token(Token::s_reservedWords[s_charBuffer], s_currentLine);
-                    }
-                    else if (s_gotoMarks.contains(s_charBuffer))
-                    {
-                        s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
-                    }
-                    else if (s_TID.contains(s_charBuffer))
-                    {
-                        s_token = Token(Token::Type::ID, s_currentLine, s_TID[s_charBuffer].getID());
-                    }
-                    else
-                    {
-                        if (m_currentChar != ':')
-                        {
-                            s_TID[s_charBuffer] = Ident(s_charBuffer);
-                            s_token = Token(Token::Type::ID, s_currentLine, s_TID[s_charBuffer].getID());
-                        }
-                        else
-                        {
-                            s_gotoMarks[s_charBuffer] = Ident(s_charBuffer);
-                            s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
-                        }
-                    }
-
-                    return (State*)s_stateMachine.pInitialState;
+                    s_TID[s_charBuffer] = Ident(s_charBuffer);
+                    s_token = Token(Token::Type::ID, s_currentLine, s_TID[s_charBuffer].getID());
                 }
 
-                return this;
+                s_pSrcFile->unget();
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -230,27 +223,23 @@ namespace mli {
                 {
                     s_numBuffer *= 10;
                     s_numBuffer += m_currentChar - '0';
+                    return this;
                 }
-                else
+
+                if (m_currentChar == '.')
                 {
-                    if (m_currentChar == '.')
-                    {
-                        return (State*)s_stateMachine.pRealState;
-                    }
-                    else if (std::isalpha(m_currentChar))
-                    {
-                        throw LexicalError(s_currentLine, m_currentChar);
-                    }
-                    else
-                    {
-                        s_token = Token(Token::Type::INT_CONST, s_currentLine, s_numBuffer);
-                    }
-
-                    s_pSrcFile->unget();
-                    return (State*)s_stateMachine.pInitialState;
+                    return reinterpret_cast<State*>(s_stateMachine.pRealState);
                 }
 
-                return this;
+                if (std::isalpha(m_currentChar))
+                {
+                    throw LexicalError(s_currentLine, m_currentChar);
+                }
+
+                s_token = Token(Token::Type::INT_CONST, s_currentLine, s_numBuffer);
+
+                s_pSrcFile->unget();
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -260,20 +249,23 @@ namespace mli {
 
             State* determineToken()
             {
+                if (s_pSrcFile->eof())
+                {
+                    throw LexicalError(s_currentLine, 0);
+                }
+
                 getChar();
 
-                if (m_currentChar == '"')
-                {
-                    s_strings.push_back(s_charBuffer);
-                    s_token = Token(Token::Type::STRING_CONST, s_currentLine, s_strings.size() - 1);
-                    return (State*)s_stateMachine.pInitialState;
-                }
-                else
+                if (m_currentChar != '"')
                 {
                     s_charBuffer.push_back(m_currentChar);
+                    return this;
                 }
 
-                return this;
+                s_strings.push_back(s_charBuffer);
+                s_token = Token(Token::Type::STRING_CONST, s_currentLine, s_strings.size() - 1);
+
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -299,9 +291,10 @@ namespace mli {
                     }
                     else
                     {
-                        s_pSrcFile->unget();
                         s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
-                        return (State*)s_stateMachine.pInitialState;
+
+                        s_pSrcFile->unget();
+                        return reinterpret_cast<State*>(s_stateMachine.pInitialState);
                     }
 
                 }
@@ -310,12 +303,11 @@ namespace mli {
                     getChar();
                     if (m_currentChar == '/')
                     {
-                        return (State*)s_stateMachine.pInitialState;
+                        return reinterpret_cast<State*>(s_stateMachine.pInitialState);
                     }
                 }
 
                 s_currentLine += (m_currentChar == '\n');
-
                 return this;
             }
     };
@@ -339,7 +331,7 @@ namespace mli {
                     s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
 
-                return (State*)s_stateMachine.pInitialState;
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -351,17 +343,15 @@ namespace mli {
             {
                 getChar();
 
-                if (m_currentChar == '=')
+                if (m_currentChar != '=')
                 {
-                    s_charBuffer.push_back(m_currentChar);
-                    s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
-                }
-                else
-                {
-                    std::runtime_error("[Scanner::getToken]: unexpected '!' character");
+                    throw LexicalError(s_currentLine, '!');
                 }
 
-                return (State*)s_stateMachine.pInitialState;
+                s_charBuffer.push_back(m_currentChar);
+                s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
+
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -384,7 +374,7 @@ namespace mli {
                     s_token = Token(Token::s_delimeters[s_charBuffer], s_currentLine);
                 }
 
-                return (State*)s_stateMachine.pInitialState;
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -396,23 +386,25 @@ namespace mli {
             {
                 getChar();
 
+                if (std::isalpha(m_currentChar))
+                {
+                    throw LexicalError(s_currentLine, m_currentChar);
+                }
+
                 if (std::isdigit(m_currentChar))
                 {
                     s_numBuffer *= 10;
                     s_numBuffer += m_currentChar - '0';
                     s_charBuffer.push_back(m_currentChar);
-                }
-                else
-                {
-                    double real = (double)s_numBuffer * std::pow(0.1, s_charBuffer.size());
-                    s_realNumbers.push_back(real);
-                    s_token = Token(Token::Type::REAL_CONST, s_currentLine, s_realNumbers.size() - 1);
-
-                    s_pSrcFile->unget();
-                    return (State*)s_stateMachine.pInitialState;
+                    return this;
                 }
 
-                return this;
+                double real = static_cast<double>(s_numBuffer * std::pow(0.1, s_charBuffer.size()));
+                s_realNumbers.push_back(real);
+                s_token = Token(Token::Type::REAL_CONST, s_currentLine, s_realNumbers.size() - 1);
+
+                s_pSrcFile->unget();
+                return reinterpret_cast<State*>(s_stateMachine.pInitialState);
             }
     };
 
@@ -471,15 +463,16 @@ namespace mli {
 
             Token getToken()
             {
-                Token unknownToken{};
+                Token undeterminedToken{};
+                Token fetchedToken{};
 
-                do
+                while (fetchedToken == undeterminedToken)
                 {
                     m_currentState = m_currentState->determineToken();
+                    fetchedToken   = m_currentState->getToken();
                 }
-                while (m_currentState->getToken() == unknownToken);
 
-                return m_currentState->getToken();
+                return fetchedToken;
             }
     };
 }

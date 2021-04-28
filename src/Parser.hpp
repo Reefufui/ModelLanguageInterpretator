@@ -17,6 +17,8 @@ namespace mli {
             Scanner     m_scanner;
             Semantic    m_validator;
 
+            std::vector<Token> m_poliz;
+
             void getToken()
             {
                 m_currentToken = m_scanner.getToken();
@@ -32,10 +34,17 @@ namespace mli {
                 }
             }
 
+            void getToken(Token::Type a_expectedType)
+            {
+                getToken();
+                checkToken(a_expectedType);
+            }
+
             void value()
             {
                 if (m_currentType == Token::Type::ID)
                 {
+                    m_validator.declarationCheck(m_currentValue);
                     getToken();
                 }
                 else
@@ -48,6 +57,11 @@ namespace mli {
             void multiplierOperand()
             {
                 if (m_currentType == Token::Type::NOT)
+                {
+                    getToken();
+                }
+
+                if (m_currentType == Token::Type::MINUS || m_currentType == Token::Type::PLUS)
                 {
                     getToken();
                 }
@@ -137,22 +151,18 @@ namespace mli {
             {
                 if ( m_currentType == Token::Type::READ )
                 {
-                    getToken();
-                    checkToken(Token::Type::OPEN_B);
+                    getToken(Token::Type::OPEN_B);
+                    {
+                        getToken(Token::Type::ID);
+                        m_validator.declarationCheck(m_currentValue);
+                    }
+                    getToken(Token::Type::CLOSE_B);
 
-                    getToken();
-                    checkToken(Token::Type::ID);
-
-                    getToken();
-                    checkToken(Token::Type::CLOSE_B);
-
-                    getToken();
-                    checkToken(Token::Type::SEMICOLON);
+                    getToken(Token::Type::SEMICOLON);
                 }
                 else if ( m_currentType == Token::Type::WRITE )
                 {
-                    getToken();
-                    checkToken(Token::Type::OPEN_B);
+                    getToken(Token::Type::OPEN_B);
 
                     do
                     {
@@ -163,71 +173,64 @@ namespace mli {
 
                     checkToken(Token::Type::CLOSE_B);
 
-                    getToken();
-                    checkToken(Token::Type::SEMICOLON);
+                    getToken(Token::Type::SEMICOLON);
                 }
                 else if ( m_currentType == Token::Type::WHILE )
                 {
-                    getToken();
-                    checkToken(Token::Type::OPEN_B);
-
-                    getToken();
-                    expression();
-
+                    getToken(Token::Type::OPEN_B);
+                    {
+                        getToken();
+                        expression();
+                    }
                     checkToken(Token::Type::CLOSE_B);
-
-                    getToken();
-                    statement();
+                    {
+                        getToken();
+                        statement();
+                    }
                 }
                 else if ( m_currentType == Token::Type::DO )
                 {
-                    getToken();
-                    statement();
-
-                    getToken();
-                    checkToken(Token::Type::WHILE);
-
-                    getToken();
-                    checkToken(Token::Type::OPEN_B);
-
-                    getToken();
-                    expression();
-
+                    {
+                        getToken();
+                        statement();
+                    }
+                    getToken(Token::Type::WHILE);
+                    getToken(Token::Type::OPEN_B);
+                    {
+                        getToken();
+                        expression();
+                    }
                     checkToken(Token::Type::CLOSE_B);
 
-                    getToken();
-                    checkToken(Token::Type::SEMICOLON);
+                    getToken(Token::Type::SEMICOLON);
                 }
                 else if ( m_currentType == Token::Type::IF )
                 {
-                    getToken();
-                    checkToken(Token::Type::OPEN_B);
-
-                    getToken();
-                    expression();
-
+                    getToken(Token::Type::OPEN_B);
+                    {
+                        getToken();
+                        expression();
+                    }
                     checkToken(Token::Type::CLOSE_B);
-
-                    getToken();
-                    statement();
-
-                    getToken();
-                    checkToken(Token::Type::ELSE);
-                    getToken();
-                    statement();
+                    {
+                        getToken();
+                        statement();
+                    }
+                    getToken(Token::Type::ELSE);
+                    {
+                        getToken();
+                        statement();
+                    }
                 }
                 else if ( m_currentType == Token::Type::GOTO_MARK )
                 {
-                    getToken();
-                    checkToken(Token::Type::COLON);
+                    m_validator.mark(m_currentValue);
+                    getToken(Token::Type::COLON);
                 }
                 else if ( m_currentType == Token::Type::GOTO )
                 {
-                    getToken();
-                    checkToken(Token::Type::GOTO_MARK);
-
-                    getToken();
-                    checkToken(Token::Type::SEMICOLON);
+                    getToken(Token::Type::GOTO_MARK);
+                    getToken(Token::Type::SEMICOLON);
                 }
                 else if (m_currentType == Token::Type::BEGIN)
                 {
@@ -289,8 +292,7 @@ namespace mli {
                 {
                     do
                     {
-                        getToken();
-                        checkToken(Token::Type::ID);
+                        getToken(Token::Type::ID);
                         uint32_t varID = m_currentValue;
 
                         m_validator.declaration(varID, variableType);
@@ -312,21 +314,6 @@ namespace mli {
                 }
             }
 
-            void program()
-            {
-                getToken();
-                checkToken(Token::Type::ENTRY);
-                getToken();
-                checkToken(Token::Type::BEGIN);
-
-                getToken();
-                declarations();
-                statements();
-
-                getToken();
-                checkToken(Token::Type::FINISH);
-            }
-
         public:
 
             Parser(const std::string& a_srcFileName)
@@ -336,10 +323,14 @@ namespace mli {
 
             void analyze()
             {
-                program();
-
-                checkToken(Token::Type::FINISH);
-                std::cout << "SYNTAX TEST PASSED\n";
+                getToken(Token::Type::ENTRY);
+                getToken(Token::Type::BEGIN);
+                {
+                    getToken();
+                    declarations();
+                    statements();
+                }
+                getToken(Token::Type::FINISH);
             }
     };
 }

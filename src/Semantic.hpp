@@ -15,6 +15,7 @@ namespace mli {
     {
         private:
             std::vector<Ident> m_declaredVariables;
+            std::vector<Ident> m_gotoMarks;
 
             Ident& findIdent(std::unordered_map<std::string, Ident>& a_map, int a_id)
             {
@@ -31,8 +32,6 @@ namespace mli {
             }
 
         public:
-            // TODO: from_st analog:
-            // push x in dst, pop x in src
 
             void declarationCheck(uint32_t a_variableID)
             {
@@ -61,7 +60,6 @@ namespace mli {
             void declaration(uint32_t a_variableID, Token::Type a_type)
             {
                 auto& variable = findIdent(State::s_TID, a_variableID);
-                m_declaredVariables.push_back(variable);
 
                 if (variable.isDeclared())
                 {
@@ -69,10 +67,29 @@ namespace mli {
                 }
                 else
                 {
-                    m_declaredVariables[a_variableID].setDeclaration(true);
+                    variable.setDeclaration(true);
                 }
 
+                m_declaredVariables.push_back(variable);
+
                 m_declaredVariables[a_variableID].setType(a_type);
+            }
+
+            void mark(uint32_t a_markID)
+            {
+                auto& gotoMark = findIdent(State::s_gotoMarks, a_markID);
+
+                if (gotoMark.isDeclared())
+                {
+                    throw SemanticError(State::s_currentLine, gotoMark, "found twice");
+                }
+                else
+                {
+                    gotoMark.setDeclaration(true);
+                }
+
+                gotoMark.setType(Token::Type::GOTO_MARK);
+                m_gotoMarks.push_back(gotoMark);
             }
 
             void init(uint32_t a_variableID, Token::Type a_type)

@@ -35,12 +35,12 @@ namespace mli {
 
                 PLUS, MINUS, MULTIPLY, DIVIDE,
 
-                ID, GOTO_MARK,
-                VARIABLE_TYPE,
+                ID, GOTO_MARK, VARIABLE_TYPE,
+
                 POLIZ_LABEL,
                 POLIZ_ADDRESS, 
                 POLIZ_GO,
-                POLIZ_FGO
+                POLIZ_FALSE_GO
             };
 
             Token(Token::Type a_type = Token::Type::NULL, int a_line = -1, uint32_t a_value = 0)
@@ -121,6 +121,26 @@ namespace mli {
                     else if (a_tokenType == Token::Type::VALUE)
                     {
                         a_out << "value";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_LABEL)
+                    {
+                        a_out << "poliz label";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_ADDRESS)
+                    {
+                        a_out << "poliz address";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_GO)
+                    {
+                        a_out << "poliz go";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_FALSE_GO)
+                    {
+                        a_out << "poliz false go";
+                    }
+                    else if (a_tokenType == Token::Type::FINISH)
+                    {
+                        a_out << "EOF";
                     }
                     else
                     {

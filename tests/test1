@@ -1,4 +1,4 @@
-/* pogram on toy c */
+/* program on toy c */
 
 program /* int main() */
 {
@@ -9,8 +9,6 @@ program /* int main() */
 
     /* body */
     a:
-
-    b and i;
 
     if (s + s + s)
     {
@@ -26,4 +24,3 @@ program /* int main() */
     else
     write(i);
 }
-
