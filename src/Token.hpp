@@ -63,6 +63,11 @@ namespace mli {
                 return m_line;
             }
 
+            void setValue(uint32_t a_value)
+            {
+                m_value = a_value;
+            }
+
             uint32_t getValue() const
             {
                 return m_value;

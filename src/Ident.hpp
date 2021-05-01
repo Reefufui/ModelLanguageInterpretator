@@ -113,6 +113,87 @@ namespace mli {
     };
 
     int Ident::m_identCount{};
+
+    class Mark {
+        private:
+            std::string m_name;
+            uint32_t    m_value;
+
+            bool        m_isMet{0};
+            size_t      m_polizID;
+
+            static int  m_markCount;
+            int         m_id;
+
+        public:
+
+            Mark()
+            {
+            }
+
+            Mark(const char* a_name)
+            {
+                m_name = a_name;
+                m_id = m_markCount;
+                ++m_markCount;
+            }
+
+            Mark(const std::string& a_name)
+                : m_name(a_name)
+            {
+                m_id = m_markCount;
+                ++m_markCount;
+            }
+
+            Mark(std::string&& a_name)
+                : m_name(a_name)
+            {
+                m_id = m_markCount;
+                ++m_markCount;
+            }
+
+            bool operator==(const std::string& a_str)
+            {
+                return m_name == a_str;
+            }
+
+            friend std::ostream& operator<<(std::ostream &a_out, const Mark& a_ident)
+            {
+                return a_out << a_ident.m_name << " (" << " with ID = " << a_ident.m_id << ")";
+            }
+
+            int getID() const
+            {
+                return m_id;
+            }
+
+            bool isMet() const
+            {
+                return m_isMet;
+            }
+
+            void setMet()
+            {
+                m_isMet = true;
+            }
+
+            size_t getPolizID() const
+            {
+                return m_polizID;
+            }
+
+            void setPolizID(size_t a_id)
+            {
+                m_polizID = a_id;
+            }
+
+            uint32_t getValue() const
+            {
+                return m_value;
+            }
+    };
+
+    int Mark::m_markCount{};
 }
 
 #endif // IDENT_HPP

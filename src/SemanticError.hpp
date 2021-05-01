@@ -21,6 +21,7 @@ namespace mli {
 
             friend std::ostream& operator<<(std::ostream &a_out, const SemanticError& a_error)
             {
+                std::cout << "[SemanticError]: ";
                 std::cout << a_error.m_trigger << " " << a_error.m_message << " on line: " << a_error.m_onRow;
 
                 return a_out;

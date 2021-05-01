@@ -63,7 +63,7 @@ namespace mli {
             }
 
             static std::unordered_map<std::string, Ident> s_TID;
-            static std::unordered_map<std::string, Ident> s_gotoMarks;
+            static std::unordered_map<std::string, Mark> s_gotoMarks;
             static std::vector<std::string>               s_strings;
             static std::vector<double>                    s_realNumbers;
 
@@ -94,7 +94,7 @@ namespace mli {
     int            State::s_currentLine{1};
 
     std::unordered_map<std::string, Ident> State::s_TID;
-    std::unordered_map<std::string, Ident> State::s_gotoMarks;
+    std::unordered_map<std::string, Mark> State::s_gotoMarks;
     std::vector<std::string> State::s_strings;
     std::vector<double> State::s_realNumbers;
 
@@ -197,7 +197,7 @@ namespace mli {
                 }
                 else if (m_currentChar == ':')
                 {
-                    s_gotoMarks[s_charBuffer] = Ident(s_charBuffer);
+                    s_gotoMarks[s_charBuffer] = Mark(s_charBuffer);
                     s_token = Token(Token::Type::GOTO_MARK, s_currentLine, s_gotoMarks[s_charBuffer].getID());
                 }
                 else

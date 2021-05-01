@@ -206,16 +206,21 @@ namespace mli {
 
             void statement()
             {
+                Token operatorToPush = m_currentToken;
+
                 if ( m_currentType == Token::Type::READ )
                 {
                     getToken(Token::Type::OPEN_B);
                     {
                         getToken(Token::Type::ID);
                         m_validator.declarationCheck(m_currentValue);
+                        m_poliz.push_back(m_currentToken);
                     }
                     getToken(Token::Type::CLOSE_B);
 
                     getToken(Token::Type::SEMICOLON);
+
+                    m_poliz.push_back(operatorToPush);
                 }
                 else if ( m_currentType == Token::Type::WRITE )
                 {
@@ -225,28 +230,55 @@ namespace mli {
                     {
                         getToken();
                         expression();
+
+                        m_validator.popWithOperator(Token::Type::SEMICOLON);
                     }
                     while (m_currentType == Token::Type::COMMA);
 
                     checkToken(Token::Type::CLOSE_B);
 
                     getToken(Token::Type::SEMICOLON);
+
+                    m_poliz.push_back(operatorToPush);
                 }
                 else if ( m_currentType == Token::Type::WHILE )
                 {
+                    size_t startPolizID = m_poliz.size();
+                    size_t endLabel = -1;
+
                     getToken(Token::Type::OPEN_B);
                     {
                         getToken();
                         expression();
+                        m_validator.popWithOperator(Token::Type::POLIZ_FALSE_GO);
+
+                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                        endLabel = m_poliz.size();
+                        m_poliz.push_back(operatorToPush);
+
+                        m_currentToken.setType(Token::Type::POLIZ_FALSE_GO);
+                        m_poliz.push_back(m_currentToken);
                     }
                     checkToken(Token::Type::CLOSE_B);
                     {
                         getToken();
                         statement();
+
+                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                        operatorToPush.setValue(startPolizID);
+                        m_poliz.push_back(operatorToPush);
+
+                        operatorToPush.setType(Token::Type::POLIZ_GO);
+                        operatorToPush.setValue(0);
+                        m_poliz.push_back(operatorToPush);
                     }
+
+                    m_poliz[endLabel].setValue(m_poliz.size());
                 }
-                else if ( m_currentType == Token::Type::DO )
+                else if (m_currentType == Token::Type::DO)
                 {
+                    size_t startPolizID = m_poliz.size();
+
                     {
                         getToken();
                         statement();
@@ -256,37 +288,85 @@ namespace mli {
                     {
                         getToken();
                         expression();
+                        m_validator.popWithOperator(Token::Type::POLIZ_FALSE_GO);
+
+                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                        operatorToPush.setValue(m_poliz.size() + 4);
+                        m_poliz.push_back(operatorToPush);
+
+                        operatorToPush.setType(Token::Type::POLIZ_FALSE_GO);
+                        operatorToPush.setValue(0);
+                        m_poliz.push_back(operatorToPush);
+
+                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                        operatorToPush.setValue(startPolizID);
+                        m_poliz.push_back(operatorToPush);
+
+                        operatorToPush.setType(Token::Type::POLIZ_GO);
+                        operatorToPush.setValue(0);
+                        m_poliz.push_back(operatorToPush);
                     }
                     checkToken(Token::Type::CLOSE_B);
 
                     getToken(Token::Type::SEMICOLON);
                 }
-                else if ( m_currentType == Token::Type::IF )
+                else if (m_currentType == Token::Type::IF)
                 {
+                    size_t elseLabel;
+                    size_t endLabel;
+
                     getToken(Token::Type::OPEN_B);
                     {
                         getToken();
                         expression();
+                        m_validator.popWithOperator(Token::Type::POLIZ_FALSE_GO);
+
+                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                        elseLabel = m_poliz.size();
+                        m_poliz.push_back(operatorToPush);
+
+                        operatorToPush.setType(Token::Type::POLIZ_FALSE_GO);
+                        m_poliz.push_back(operatorToPush);
                     }
                     checkToken(Token::Type::CLOSE_B);
                     {
                         getToken();
                         statement();
+
+                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                        endLabel = m_poliz.size();
+                        m_poliz.push_back(operatorToPush);
+
+                        operatorToPush.setType(Token::Type::POLIZ_GO);
+                        m_poliz.push_back(operatorToPush);
                     }
                     getToken(Token::Type::ELSE);
                     {
+                        m_poliz[elseLabel].setValue(m_poliz.size());
                         getToken();
                         statement();
                     }
+
+                    m_poliz[endLabel].setValue(m_poliz.size());
                 }
-                else if ( m_currentType == Token::Type::GOTO_MARK )
+                else if (m_currentType == Token::Type::GOTO_MARK)
                 {
-                    m_validator.mark(m_currentValue);
+                    m_validator.mark(m_currentValue, m_poliz.size());
                     getToken(Token::Type::COLON);
                 }
-                else if ( m_currentType == Token::Type::GOTO )
+                else if (m_currentType == Token::Type::GOTO)
                 {
                     getToken(Token::Type::GOTO_MARK);
+                    Mark& mark = m_validator.fetchMark(m_currentToken);
+
+                    operatorToPush.setType(Token::Type::POLIZ_LABEL);
+                    operatorToPush.setValue((uint32_t)mark.getPolizID());
+                    m_poliz.push_back(operatorToPush);
+
+                    operatorToPush.setType(Token::Type::POLIZ_GO);
+                    operatorToPush.setValue(0);
+                    m_poliz.push_back(operatorToPush);
+
                     getToken(Token::Type::SEMICOLON);
                 }
                 else if (m_currentType == Token::Type::BEGIN)
@@ -298,6 +378,8 @@ namespace mli {
                 {
                     expression();
                     checkToken(Token::Type::SEMICOLON);
+                    m_validator.popWithOperator(m_currentType);
+                    m_poliz.push_back(m_currentToken);
                 }
             }
 
@@ -398,8 +480,10 @@ namespace mli {
 
                 m_validator.outputTypeStack();
                 std::cout << "Poliz stack:\n";
+                int i = 0;
                 for (auto& polizElem: m_poliz)
                 {
+                    std::cout << i++ << ":  ";
                     if (polizElem.getType() == Token::Type::ID)
                     {
                         std::cout << m_validator.fetchVariable(polizElem) << "\n";

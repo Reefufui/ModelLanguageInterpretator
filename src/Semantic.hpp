@@ -16,14 +16,15 @@ namespace mli {
     {
         private:
             std::vector<Ident> m_declaredVariables;
-            std::vector<Ident> m_gotoMarks;
+            std::vector<Mark>  m_gotoMarks;
 
             std::stack<Token::Type> m_typesStack;
             bool                    m_rValueFlag;
 
-            Ident& findIdent(std::unordered_map<std::string, Ident>& a_map, int a_id)
+            template<typename T>
+            T& findIdent(std::unordered_map<std::string, T>& a_map, int a_id)
             {
-                auto mapCheck = [a_id](const std::pair<std::string, Ident>& elem) -> bool
+                auto mapCheck = [a_id](const std::pair<std::string, T>& elem) -> bool
                 {
                     return elem.second.getID() == a_id;
                 };
@@ -44,9 +45,16 @@ namespace mli {
 
             void popWithOperator(Token::Type a_type)
             {
+                if (a_type == Token::Type::SEMICOLON)
+                {
+                    m_typesStack.pop();
+                    return;
+                }
+
                 bool isUnary = (a_type == Token::Type::NOT)
                     || (a_type == Token::Type::UNARY_MINUS)
-                    || (a_type == Token::Type::UNARY_PLUS);
+                    || (a_type == Token::Type::UNARY_PLUS)
+                    || (a_type == Token::Type::POLIZ_FALSE_GO);
 
                 if (isUnary)
                 {
@@ -54,7 +62,14 @@ namespace mli {
                     {
                         throw SemanticError(State::s_currentLine, a_type, "for non-int operand");
                     }
-                    m_rValueFlag = true;
+                    else if (a_type == Token::Type::POLIZ_FALSE_GO)
+                    {
+                        m_typesStack.pop();
+                    }
+                    else
+                    {
+                        m_rValueFlag = true;
+                    }
 
                     return;
                 }
@@ -82,7 +97,6 @@ namespace mli {
                             }
                             else
                             {
-                                std::cout << leftOperand << " + " << rightOperand << "\n";
                                 m_typesStack.push(Token::Type::STRING_CONST);
                             }
                         }
@@ -123,7 +137,6 @@ namespace mli {
                     }
                     else
                     {
-                        std::cout << leftOperand << " or " << rightOperand << "\n";
                         throw SemanticError(State::s_currentLine, a_type, "for non-int operand");
                     }
                 }
@@ -173,6 +186,11 @@ namespace mli {
                 return m_declaredVariables[a_token.getValue()];
             }
 
+            Mark& fetchMark(const Token& a_token)
+            {
+                return m_gotoMarks[a_token.getValue()];
+            }
+
             void declarationCheck(uint32_t a_variableID)
             {
                 if (a_variableID >= m_declaredVariables.size())
@@ -201,31 +219,30 @@ namespace mli {
             {
                 auto& variable = findIdent(State::s_TID, a_variableID);
 
-                m_declaredVariables.push_back(variable);
-
                 if (variable.isDeclared())
                 {
                     throw SemanticError(State::s_currentLine, variable, "declared twice");
                 }
 
-                m_declaredVariables[a_variableID].setDeclaration(true);
-                m_declaredVariables[a_variableID].setType(a_type);
+                variable.setDeclaration(true);
+                variable.setType(a_type);
+                m_declaredVariables.push_back(variable);
             }
 
-            void mark(uint32_t a_markID)
+            void mark(uint32_t a_markID, size_t a_polizID)
             {
                 auto& gotoMark = findIdent(State::s_gotoMarks, a_markID);
 
-                if (gotoMark.isDeclared())
+                if (gotoMark.isMet())
                 {
-                    throw SemanticError(State::s_currentLine, gotoMark, "found twice");
+                    throw SemanticError(State::s_currentLine, gotoMark, "met twice");
                 }
                 else
                 {
-                    gotoMark.setDeclaration(true);
+                    gotoMark.setMet();
                 }
 
-                gotoMark.setType(Token::Type::GOTO_MARK);
+                gotoMark.setPolizID(a_polizID);
                 m_gotoMarks.push_back(gotoMark);
             }
 
