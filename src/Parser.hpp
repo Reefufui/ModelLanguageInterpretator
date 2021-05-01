@@ -40,11 +40,23 @@ namespace mli {
                 checkToken(a_expectedType);
             }
 
+            Token::Type toConstType(Token::Type a_token)
+            {
+                return (a_token == Token::Type::STRING) ? Token::Type::STRING_CONST
+                    : (a_token == Token::Type::REAL) ? Token::Type::REAL_CONST
+                    : (a_token == Token::Type::INT) ? Token::Type::INT_CONST : a_token;
+            }
+
             void value()
             {
                 if (m_currentType == Token::Type::ID)
                 {
                     m_validator.declarationCheck(m_currentValue);
+                    m_poliz.push_back(m_currentToken);
+
+                    Ident& variable = m_validator.fetchVariable(m_currentToken);
+                    m_validator.pushType(toConstType(variable.getType()));
+
                     getToken();
                 }
                 else
@@ -56,13 +68,20 @@ namespace mli {
 
             void multiplierOperand()
             {
-                if (m_currentType == Token::Type::NOT)
+                std::vector<Token> localStack;
+
+                while (m_currentType == Token::Type::NOT)
                 {
+                    localStack.push_back(m_currentToken);
                     getToken();
                 }
 
-                if (m_currentType == Token::Type::MINUS || m_currentType == Token::Type::PLUS)
+                while (m_currentType == Token::Type::MINUS || m_currentType == Token::Type::PLUS)
                 {
+                    Token::Type unaryType = (m_currentType == Token::Type::MINUS) ? Token::Type::UNARY_MINUS
+                        : (m_currentType == Token::Type::PLUS) ? Token::Type::UNARY_PLUS : m_currentType;
+                    m_currentToken.setType(unaryType);
+                    localStack.push_back(m_currentToken);
                     getToken();
                 }
 
@@ -79,6 +98,17 @@ namespace mli {
                 {
                     value();
                 }
+
+                if (localStack.size())
+                {
+                    auto push = [&](Token& t)
+                    {
+                        m_poliz.push_back(t);
+                        m_validator.popWithOperator(t.getType());
+                    };
+
+                    std::for_each(localStack.rbegin(), localStack.rend(), push);
+                }
             }
 
             void termOperand()
@@ -87,8 +117,12 @@ namespace mli {
 
                 while (m_currentType == Token::Type::MULTIPLY || m_currentType == Token::Type::DIVIDE)
                 {
+                    Token operand = m_currentToken;
                     getToken();
                     multiplierOperand();
+
+                    m_poliz.push_back(operand);
+                    m_validator.popWithOperator(operand.getType());
                 }
             }
 
@@ -98,8 +132,12 @@ namespace mli {
 
                 while (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
                 {
+                    Token operand = m_currentToken;
                     getToken();
                     termOperand();
+
+                    m_poliz.push_back(operand);
+                    m_validator.popWithOperator(operand.getType());
                 }
             }
 
@@ -109,8 +147,12 @@ namespace mli {
 
                 while ( m_currentType >= Token::Type::EQ && m_currentType <= Token::Type::GEQ )
                 {
+                    Token operand = m_currentToken;
                     getToken();
                     compOperand();
+
+                    m_poliz.push_back(operand);
+                    m_validator.popWithOperator(operand.getType());
                 }
             }
 
@@ -120,8 +162,12 @@ namespace mli {
 
                 while (m_currentType == Token::Type::AND)
                 {
+                    Token operand = m_currentToken;
                     getToken();
                     andOperand();
+
+                    m_poliz.push_back(operand);
+                    m_validator.popWithOperator(operand.getType());
                 }
             }
 
@@ -131,19 +177,30 @@ namespace mli {
 
                 while (m_currentType == Token::Type::OR)
                 {
+                    Token operand = m_currentToken;
                     getToken();
                     orOperand();
+
+                    m_poliz.push_back(operand);
+                    m_validator.popWithOperator(operand.getType());
                 }
             }
 
             void expression()
             {
+                m_validator.setRValueFlag(false);
                 assignOperand();
 
                 while (m_currentType == Token::Type::ASSIGN)
                 {
+                    m_validator.isLValue();
+
+                    Token operand = m_currentToken;
                     getToken();
                     assignOperand();
+
+                    m_poliz.push_back(operand);
+                    m_validator.popWithOperator(operand.getType());
                 }
             }
 
@@ -274,6 +331,10 @@ namespace mli {
                 {
                     throw SyntaxError(m_currentToken, Token::Type::VALUE);
                 }
+
+                m_poliz.push_back(m_currentToken);
+                m_validator.pushType(m_currentType);
+                m_validator.setRValueFlag(true);
             }
 
             void declarations()
@@ -328,9 +389,26 @@ namespace mli {
                 {
                     getToken();
                     declarations();
+
+                    m_validator.init();
+                    m_poliz = std::vector<Token>(0);
                     statements();
                 }
                 getToken(Token::Type::FINISH);
+
+                m_validator.outputTypeStack();
+                std::cout << "Poliz stack:\n";
+                for (auto& polizElem: m_poliz)
+                {
+                    if (polizElem.getType() == Token::Type::ID)
+                    {
+                        std::cout << m_validator.fetchVariable(polizElem) << "\n";
+                    }
+                    else
+                    {
+                        std::cout << polizElem << "\n";
+                    }
+                }
             }
     };
 }

@@ -33,7 +33,7 @@ namespace mli {
 
                 EQ, LESS, GREATER, NEQ, LEQ, GEQ, // dont change order
 
-                PLUS, MINUS, MULTIPLY, DIVIDE,
+                PLUS, MINUS, UNARY_PLUS, UNARY_MINUS, MULTIPLY, DIVIDE,
 
                 ID, GOTO_MARK, VARIABLE_TYPE,
 
@@ -53,6 +53,11 @@ namespace mli {
                 return m_type;
             }
 
+            void setType(Token::Type a_type)
+            {
+                m_type = a_type;
+            }
+
             int getLine() const
             {
                 return m_line;
@@ -69,8 +74,11 @@ namespace mli {
                         && a_other.m_value == this->m_value);
             }
 
-            friend std::ostream& operator<<(std::ostream &a_out, const Token::Type a_tokenType)
+            friend std::ostream& operator<<(std::ostream &a_out, Token::Type a_tokenType)
             {
+                a_tokenType = (a_tokenType == Token::Type::UNARY_MINUS) ? Token::Type::MINUS : a_tokenType;
+                a_tokenType = (a_tokenType == Token::Type::UNARY_PLUS) ? Token::Type::PLUS : a_tokenType;
+
                 auto mapCheck = [a_tokenType](const std::pair<std::string, Token::Type>& elem) -> bool
                 {
                     return elem.second == a_tokenType;

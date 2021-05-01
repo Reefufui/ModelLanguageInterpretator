@@ -8,19 +8,5 @@ program /* int main() */
     int i = 3, j = 0, k = 1;
 
     /* body */
-    a:
-
-    if (s + s + s)
-    {
-        read(j);
-
-        do
-        {
-            write("Hello world");
-            i = i - 1;
-        }
-        while(i);
-    }
-    else
-    write(i);
+    (i = k) * 5 = 4; 
 }
