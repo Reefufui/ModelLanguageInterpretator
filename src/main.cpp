@@ -69,6 +69,11 @@ int main(int argc, char** argv)
         std::cerr << error << std::endl;
         return EXIT_FAILURE;
     }
+    catch (const mli::SemanticError<mli::Mark>& error)
+    {
+        std::cerr << error << std::endl;
+        return EXIT_FAILURE;
+    }
     catch (const mli::SemanticError<mli::Token::Type>& error)
     {
         std::cerr << error << std::endl;
