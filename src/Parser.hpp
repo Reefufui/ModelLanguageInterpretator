@@ -196,7 +196,6 @@ namespace mli {
                 while (m_currentType == Token::Type::ASSIGN)
                 {
                     m_validator.isLValue();
-
                     localStack.push_back(m_currentToken);
 
                     getToken();
