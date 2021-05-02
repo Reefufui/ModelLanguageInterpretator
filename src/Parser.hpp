@@ -188,19 +188,29 @@ namespace mli {
 
             void expression()
             {
+                std::vector<Token> localStack(0);
+
                 m_validator.setRValueFlag(false);
                 assignOperand();
 
                 while (m_currentType == Token::Type::ASSIGN)
                 {
                     m_validator.isLValue();
+                    localStack.push_back(m_currentToken);
 
-                    Token operand = m_currentToken;
                     getToken();
                     assignOperand();
+                }
 
-                    m_poliz.push_back(operand);
-                    m_validator.popWithOperator(operand.getType());
+                if (localStack.size())
+                {
+                    auto push = [&](Token& t)
+                    {
+                        m_poliz.push_back(t);
+                        m_validator.popWithOperator(t.getType());
+                    };
+
+                    std::for_each(localStack.rbegin(), localStack.rend(), push);
                 }
             }
 
