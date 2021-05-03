@@ -38,12 +38,10 @@ namespace mli {
                 ID, GOTO_MARK, VARIABLE_TYPE,
 
                 POLIZ_LABEL,
-                POLIZ_ADDRESS, 
-                POLIZ_GO,
-                POLIZ_FALSE_GO
+                POLIZ_GO, POLIZ_FALSE_GO, POLIZ_TRUE_GO, POLIZ_TRUE_LAZY, POLIZ_FALSE_LAZY
             };
 
-            Token(Token::Type a_type = Token::Type::NULL, int a_line = -1, uint32_t a_value = 0)
+            Token(Token::Type a_type = Token::Type::NULL, int a_line = -1, int a_value = 0)
                 : m_type(a_type), m_line(a_line), m_value(a_value)
             {
             }
@@ -63,12 +61,12 @@ namespace mli {
                 return m_line;
             }
 
-            void setValue(uint32_t a_value)
+            void setValue(int a_value)
             {
                 m_value = a_value;
             }
 
-            uint32_t getValue() const
+            int getValue() const
             {
                 return m_value;
             }
@@ -139,10 +137,6 @@ namespace mli {
                     {
                         a_out << "poliz label";
                     }
-                    else if (a_tokenType == Token::Type::POLIZ_ADDRESS)
-                    {
-                        a_out << "poliz address";
-                    }
                     else if (a_tokenType == Token::Type::POLIZ_GO)
                     {
                         a_out << "poliz go";
@@ -150,6 +144,18 @@ namespace mli {
                     else if (a_tokenType == Token::Type::POLIZ_FALSE_GO)
                     {
                         a_out << "poliz false go";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_TRUE_GO)
+                    {
+                        a_out << "poliz true go";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_TRUE_LAZY)
+                    {
+                        a_out << "poliz false lazy";
+                    }
+                    else if (a_tokenType == Token::Type::POLIZ_FALSE_LAZY)
+                    {
+                        a_out << "poliz true lazy";
                     }
                     else if (a_tokenType == Token::Type::FINISH)
                     {
@@ -181,7 +187,7 @@ namespace mli {
         private:
             Token::Type m_type;
             int         m_line;
-            uint32_t    m_value;
+            int    m_value;
     };
 
     std::map<std::string, Token::Type> Token::s_reservedWords {

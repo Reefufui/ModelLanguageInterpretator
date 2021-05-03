@@ -1,8 +1,14 @@
 program
 {
-    int a, b, c = 1;
-    a = c = c;
+    if (0 and 1)
+    {
+        write("if");
+    }
+    else
+    {
+        write("else");
+    }
 
-    /* &b 2 c 3 = + = ; */
-    b = 2 + (c = 3);
+    write("No errors occured");
 }
+

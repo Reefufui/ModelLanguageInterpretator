@@ -117,12 +117,12 @@ namespace mli {
 
                 while (m_currentType == Token::Type::MULTIPLY || m_currentType == Token::Type::DIVIDE)
                 {
-                    Token operand = m_currentToken;
+                    Token operatorMultiplyDivide = m_currentToken;
                     getToken();
                     multiplierOperand();
 
-                    m_poliz.push_back(operand);
-                    m_validator.popWithOperator(operand.getType());
+                    m_poliz.push_back(operatorMultiplyDivide);
+                    m_validator.popWithOperator(operatorMultiplyDivide.getType());
                 }
             }
 
@@ -132,12 +132,12 @@ namespace mli {
 
                 while (m_currentType == Token::Type::PLUS || m_currentType == Token::Type::MINUS)
                 {
-                    Token operand = m_currentToken;
+                    Token operatorPlusMinus = m_currentToken;
                     getToken();
                     termOperand();
 
-                    m_poliz.push_back(operand);
-                    m_validator.popWithOperator(operand.getType());
+                    m_poliz.push_back(operatorPlusMinus);
+                    m_validator.popWithOperator(operatorPlusMinus.getType());
                 }
             }
 
@@ -147,13 +147,29 @@ namespace mli {
 
                 while ( m_currentType >= Token::Type::EQ && m_currentType <= Token::Type::GEQ )
                 {
-                    Token operand = m_currentToken;
+                    Token operatorComp = m_currentToken;
                     getToken();
                     compOperand();
 
-                    m_poliz.push_back(operand);
-                    m_validator.popWithOperator(operand.getType());
+                    m_poliz.push_back(operatorComp);
+                    m_validator.popWithOperator(operatorComp.getType());
                 }
+            }
+
+            size_t pushLazyJumps(Token::Type a_condition)
+            {
+                Token lazyToken{};
+                size_t lazyPolizID = -1;
+
+                lazyToken.setType(Token::Type::POLIZ_LABEL);
+                lazyPolizID = m_poliz.size();
+                m_poliz.push_back(lazyToken);
+
+                lazyToken.setType(a_condition);
+                lazyToken.setValue(0);
+                m_poliz.push_back(lazyToken);
+
+                return lazyPolizID;
             }
 
             void orOperand()
@@ -162,12 +178,15 @@ namespace mli {
 
                 while (m_currentType == Token::Type::AND)
                 {
-                    Token operand = m_currentToken;
+                    size_t lazyPolizID = pushLazyJumps(Token::Type::POLIZ_FALSE_LAZY);
+
+                    Token operatorAnd = m_currentToken;
                     getToken();
                     andOperand();
 
-                    m_poliz.push_back(operand);
-                    m_validator.popWithOperator(operand.getType());
+                    m_poliz.push_back(operatorAnd);
+                    m_poliz[lazyPolizID].setValue(m_poliz.size());
+                    m_validator.popWithOperator(operatorAnd.getType());
                 }
             }
 
@@ -177,12 +196,15 @@ namespace mli {
 
                 while (m_currentType == Token::Type::OR)
                 {
-                    Token operand = m_currentToken;
+                    size_t lazyPolizID = pushLazyJumps(Token::Type::POLIZ_TRUE_LAZY);
+
+                    Token operatorOr = m_currentToken;
                     getToken();
                     orOperand();
 
-                    m_poliz.push_back(operand);
-                    m_validator.popWithOperator(operand.getType());
+                    m_poliz.push_back(operatorOr);
+                    m_poliz[lazyPolizID].setValue(m_poliz.size());
+                    m_validator.popWithOperator(operatorOr.getType());
                 }
             }
 
@@ -240,6 +262,7 @@ namespace mli {
                     {
                         getToken();
                         expression();
+                        m_poliz.push_back(operatorToPush);
 
                         m_validator.popWithOperator(Token::Type::SEMICOLON);
                     }
@@ -248,8 +271,6 @@ namespace mli {
                     checkToken(Token::Type::CLOSE_B);
 
                     getToken(Token::Type::SEMICOLON);
-
-                    m_poliz.push_back(operatorToPush);
                 }
                 else if ( m_currentType == Token::Type::WHILE )
                 {
@@ -298,21 +319,13 @@ namespace mli {
                     {
                         getToken();
                         expression();
-                        m_validator.popWithOperator(Token::Type::POLIZ_FALSE_GO);
-
-                        operatorToPush.setType(Token::Type::POLIZ_LABEL);
-                        operatorToPush.setValue(m_poliz.size() + 4);
-                        m_poliz.push_back(operatorToPush);
-
-                        operatorToPush.setType(Token::Type::POLIZ_FALSE_GO);
-                        operatorToPush.setValue(0);
-                        m_poliz.push_back(operatorToPush);
+                        m_validator.popWithOperator(Token::Type::POLIZ_TRUE_GO);
 
                         operatorToPush.setType(Token::Type::POLIZ_LABEL);
                         operatorToPush.setValue(startPolizID);
                         m_poliz.push_back(operatorToPush);
 
-                        operatorToPush.setType(Token::Type::POLIZ_GO);
+                        operatorToPush.setType(Token::Type::POLIZ_TRUE_GO);
                         operatorToPush.setValue(0);
                         m_poliz.push_back(operatorToPush);
                     }
@@ -410,8 +423,13 @@ namespace mli {
                         || m_currentType == Token::Type::REAL_CONST;
                 };
 
-                if (m_currentToken == Token::Type::MINUS || m_currentToken == Token::Type::PLUS)
+                Token operand{};
+                if (m_currentType == Token::Type::MINUS || m_currentType == Token::Type::PLUS)
                 {
+                    Token::Type unaryType = (m_currentType == Token::Type::MINUS) ? Token::Type::UNARY_MINUS
+                        : (m_currentType == Token::Type::PLUS) ? Token::Type::UNARY_PLUS : m_currentType;
+                    m_currentToken.setType(unaryType);
+                    operand = m_currentToken;
                     getToken();
 
                     if (!isNumerical())
@@ -427,6 +445,11 @@ namespace mli {
                 m_poliz.push_back(m_currentToken);
                 m_validator.pushType(m_currentType);
                 m_validator.setRValueFlag(true);
+
+                if (operand.getType() != Token::Type::NULL)
+                {
+                    m_poliz.push_back(operand);
+                }
             }
 
             void declarations()
@@ -446,6 +469,7 @@ namespace mli {
                     do
                     {
                         getToken(Token::Type::ID);
+                        Token identToken{m_currentToken};
                         uint32_t varID = m_currentValue;
 
                         m_validator.declaration(varID, variableType);
@@ -454,11 +478,21 @@ namespace mli {
 
                         if (m_currentType == Token::Type::ASSIGN)
                         {
-                            getToken();
-                            constant();
+                            Token operatorAssign{m_currentToken};
+
+                            m_poliz.push_back(identToken);
+                            {
+                                getToken();
+                                constant();
+                            }
                             m_validator.init(varID, m_currentType);
+                            m_poliz.push_back(operatorAssign);
+                            operatorAssign.setType(Token::Type::SEMICOLON);
+                            m_poliz.push_back(operatorAssign);
+
                             getToken();
                         }
+
                     }
                     while (m_currentType == Token::Type::COMMA);
 
@@ -474,22 +508,14 @@ namespace mli {
             {
             }
 
-            void analyze()
+            std::vector<Token>& fetchPoliz()
             {
-                getToken(Token::Type::ENTRY);
-                getToken(Token::Type::BEGIN);
-                {
-                    getToken();
-                    declarations();
+                return m_poliz;
+            }
 
-                    m_validator.init();
-                    m_poliz = std::vector<Token>(0);
-                    statements();
-                }
-                getToken(Token::Type::FINISH);
-
-                m_validator.outputTypeStack();
-                std::cout << "Poliz stack:\n";
+            void dumpPoliz()
+            {
+                std::cout << "########### POLIZ STACK ###########\n";
                 int i = 0;
                 for (auto& polizElem: m_poliz)
                 {
@@ -503,6 +529,23 @@ namespace mli {
                         std::cout << polizElem << "\n";
                     }
                 }
+                std::cout << "###################################\n";
+            }
+
+            void analyze()
+            {
+                getToken(Token::Type::ENTRY);
+                getToken(Token::Type::BEGIN);
+                {
+                    getToken();
+                    declarations();
+
+                    m_validator.init();
+                    statements();
+                }
+                getToken(Token::Type::FINISH);
+
+                m_validator.outputTypeStack();
             }
     };
 }
