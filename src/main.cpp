@@ -2,40 +2,59 @@
 
 #include "Scanner.hpp"
 #include "Parser.hpp"
+#include "Executer.hpp"
 
-#define DEBUG
+namespace mli {
 
-#ifdef DEBUG
-void lexicalUnitTest(const char* a_testFileName)
-{
-    mli::Scanner scaner(a_testFileName);
-
-    mli::Token token{};
-    while((token = scaner.getToken()).getType() != mli::Token::Type::FINISH)
+    class Interpretator
     {
-        std::cout << token << "\n";
-    }
+        private:
+            std::string m_fileName;
+            Parser      m_parser;
+            Executer    m_executer;
 
-    std::cout << "strings:\n";
-    for (auto& s : mli::State::s_strings)
-    {
-        std::cout << "\t" << s << "\n";
-    }
+        public:
 
-    std::cout << "reals:\n";
-    for (auto& r : mli::State::s_realNumbers)
-    {
-        std::cout << "\t" << r << "\n";
-    }
+            Interpretator(const char* a_fileName)
+                : m_fileName(a_fileName), m_parser(a_fileName)
+            {
+                m_parser.analyze();
+            }
+
+            void run()
+            {
+                m_executer.executePoliz(m_parser.fetchPoliz());
+            }
+
+            void lexicalUnitTest()
+            {
+                Scanner scaner(m_fileName);
+
+                Token token{};
+                while((token = scaner.getToken()).getType() != Token::Type::FINISH)
+                {
+                    std::cout << token << "\n";
+                }
+
+                std::cout << "strings:\n";
+                for (auto& s : State::s_strings)
+                {
+                    std::cout << "\t" << s << "\n";
+                }
+
+                std::cout << "reals:\n";
+                for (auto& r : State::s_realNumbers)
+                {
+                    std::cout << "\t" << r << "\n";
+                }
+            }
+
+            void semanticalUnitTest()
+            {
+                m_parser.dumpPoliz();
+            }
+    };
 }
-
-void semanticalUnitTest(const char* a_testFileName)
-{
-    mli::Parser parser(a_testFileName);
-
-    parser.analyze();
-}
-#endif
 
 int main(int argc, char** argv)
 {
@@ -46,8 +65,9 @@ int main(int argc, char** argv)
             throw std::runtime_error("[main]: invalid number of arguments");
         }
 
-        //lexicalUnitTest(argv[1]);
-        semanticalUnitTest(argv[1]);
+        mli::Interpretator app{ argv[1] };
+        app.semanticalUnitTest();
+        app.run();
     }
     catch (const std::exception& error)
     {

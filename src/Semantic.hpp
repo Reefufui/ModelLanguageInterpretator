@@ -21,8 +21,10 @@ namespace mli {
             std::stack<Token::Type> m_typesStack;
             bool                    m_rValueFlag;
 
+        public:
+
             template<typename T>
-            T& findIdent(std::unordered_map<std::string, T>& a_map, int a_id)
+            static T& findIdent(std::unordered_map<std::string, T>& a_map, int a_id)
             {
                 auto mapCheck = [a_id](const std::pair<std::string, T>& elem) -> bool
                 {
@@ -35,8 +37,6 @@ namespace mli {
 
                 return a_map[(*mapPair).first];
             }
-
-        public:
 
             void pushType(Token::Type a_type)
             {
@@ -54,15 +54,19 @@ namespace mli {
                 bool isUnary = (a_type == Token::Type::NOT)
                     || (a_type == Token::Type::UNARY_MINUS)
                     || (a_type == Token::Type::UNARY_PLUS)
+                    || (a_type == Token::Type::POLIZ_TRUE_GO)
                     || (a_type == Token::Type::POLIZ_FALSE_GO);
 
                 if (isUnary)
                 {
                     if (m_typesStack.top() != Token::Type::INT_CONST)
                     {
-                        throw SemanticError(State::s_currentLine, a_type, "for non-int operand");
+                        if (a_type != Token::Type::UNARY_MINUS && a_type != Token::Type::UNARY_PLUS)
+                        {
+                            throw SemanticError(State::s_currentLine, a_type, "for non-int operand");
+                        }
                     }
-                    else if (a_type == Token::Type::POLIZ_FALSE_GO)
+                    else if (a_type == Token::Type::POLIZ_FALSE_GO || a_type == Token::Type::POLIZ_TRUE_GO)
                     {
                         m_typesStack.pop();
                     }

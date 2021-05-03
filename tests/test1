@@ -1,6 +1,6 @@
 program
 {
-    int a = 51, b = 6, c;
+    int a = 51, b = 6, c = 1;
     string x = "abc", y, z = "abcd";
 
     if (c >= 100 or x == z)
